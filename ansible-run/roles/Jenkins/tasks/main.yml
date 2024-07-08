@@ -86,6 +86,7 @@
     image: sonarqube:lts-community
     state: started
     restart_policy: always
+    python_path: "/usr/bin/python3"  # Specify the Python interpreter path
     ports:
       - "9000:9000"
 
