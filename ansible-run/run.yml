@@ -1,0 +1,13 @@
+- name: Run Jenkins setup
+  hosts: all
+  become: true
+  roles:
+    - "{{ role_name }}"
+
+
+
+  # 225  sudo apt-add-repository ppa:ansible/ansible
+  # 226  sudo apt update -y
+  # 227  sudo apt install ansible
+  # 228  ansible --version
+
