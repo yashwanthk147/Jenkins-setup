@@ -119,7 +119,7 @@
 
     - name: Add Trivy repository
       ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main"
+        repo: "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb focal main"
         state: present
         filename: trivy
 
@@ -131,7 +131,7 @@
 
 - name:  Add Terraform GPG key and repository
   block:
-    - name: Download Trivy GPG key
+    - name: Download Terraform GPG key
       ansible.builtin.get_url:
         url: https://apt.releases.hashicorp.com/gpg
         dest: /usr/share/keyrings/hashicorp-archive-keyring.gpg
