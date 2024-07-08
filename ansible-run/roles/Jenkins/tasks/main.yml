@@ -98,18 +98,17 @@
   when: sonar_container_id.stdout | length > 0
   ignore_errors: true
 
-  
 - name: Install prerequisites
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-    with_items:
-      - wget
-      - curl
-      - unzip
-      - apt-transport-https
-      - gnupg
-      - lsb-release
+  with_items:
+    - wget
+    - curl
+    - unzip
+    - apt-transport-https
+    - gnupg
+    - lsb-release
 
 - name:  Add Trivy GPG key and repository
   block:
