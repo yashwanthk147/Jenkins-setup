@@ -3,10 +3,18 @@
   hosts: all
   become: true
   tasks:
-    - name: List directories
-      command: ls -R /path/to/your/ansible-run/roles/
+    - name: List directories in roles path
+      command: ls -R /home/ubuntu/.ansible/pull/{{ inventory_hostname }}/ansible-run/roles/
+      register: result
+      ignore_errors: yes
+
+    - name: Print directory listing
+      debug:
+        msg: "{{ result.stdout_lines }}"
+    
     - include_role:
         name: "{{ role_name }}"
+
 
 
 
