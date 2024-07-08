@@ -11,6 +11,7 @@
     - name: Print directory listing
       debug:
         msg: "{{ result.stdout_lines }}"
+        
     
     - include_role:
         name: "{{ role_name }}"
