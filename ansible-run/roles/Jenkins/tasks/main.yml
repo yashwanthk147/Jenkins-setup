@@ -25,11 +25,80 @@
         repo: "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb {{ ansible_distribution_release }} main"
         state: present
 
-- name: Install the latest version of Apache and MariaDB
+- name: Install the latest version of jdk
   ansible.builtin.package:
     name:
       - temurin-17-jdk
     state: latest
+
+- name: Ensure /usr/share/keyrings directory exists and add Jenkins GPG key and repository
+  block:
+    - name: Ensure /usr/share/keyrings directory exists
+      ansible.builtin.file:
+        path: /usr/share/keyrings
+        state: directory
+
+    - name: Download Jenkins GPG key
+      ansible.builtin.get_url:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+        dest: /usr/share/keyrings/jenkins-keyring.asc
+
+    - name: Add Jenkins APT repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+        state: present
+        filename: jenkins
+
+- name: Install the Jenkins
+  ansible.builtin.package:
+    name:
+      - jenkins
+    state: latest
+
+- name: Start service jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    enabled: yes
+    state: started
+
+- name: Install Docker.io
+  ansible.builtin.package:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Add ubuntu user to docker group
+  ansible.builtin.user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Change group ownership of Docker socket
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    group: docker
+    state: file
+    mode: '0777'
+
+- name: Run SonarQube container
+  ansible.builtin.docker_container:
+    name: sonar
+    image: sonarqube:lts-community
+    state: started
+    restart_policy: always
+    ports:
+      - "9000:9000"
+
+- name: Check if SonarQube container is running
+  shell: docker ps -f name=sonar -q
+  register: sonar_container_id
+  ignore_errors: true
+
+- name: Print container ID if SonarQube is running
+  debug:
+    msg: "SonarQube container is running with ID {{ sonar_container_id.stdout }}"
+  when: sonar_container_id.stdout | length > 0
+
 # #sudo apt update -y
 # wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | tee /etc/apt/keyrings/adoptium.asc
 
