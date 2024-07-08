@@ -1,8 +1,12 @@
+---
 - name: Run Jenkins setup
   hosts: all
   become: true
-  roles:
-    - "{{ role_name }}"
+  tasks:
+    - name: List directories
+      command: ls -R /path/to/your/ansible-run/roles/
+    - include_role:
+        name: "{{ role_name }}"
 
 
 
