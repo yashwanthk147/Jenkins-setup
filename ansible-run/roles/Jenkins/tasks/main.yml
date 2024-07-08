@@ -33,11 +33,6 @@
 
 - name: Ensure /usr/share/keyrings directory exists and add Jenkins GPG key and repository
   block:
-    - name: Ensure /usr/share/keyrings directory exists
-      ansible.builtin.file:
-        path: /usr/share/keyrings
-        state: directory
-
     - name: Download Jenkins GPG key
       ansible.builtin.get_url:
         url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
@@ -86,9 +81,11 @@
     image: sonarqube:lts-community
     state: started
     restart_policy: always
-    python_path: "/usr/bin/python3"  # Specify the Python interpreter path
+    #python_path: "/usr/bin/python3"  # Specify the Python interpreter path
     ports:
       - "9000:9000"
+  ignore_errors: true
+
 
 - name: Check if SonarQube container is running
   shell: docker ps -f name=sonar -q
@@ -99,47 +96,97 @@
   debug:
     msg: "SonarQube container is running with ID {{ sonar_container_id.stdout }}"
   when: sonar_container_id.stdout | length > 0
+  ignore_errors: true
 
-# #sudo apt update -y
-# wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | tee /etc/apt/keyrings/adoptium.asc
+  
+- name: Install prerequisites
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+    with_items:
+      - wget
+      - curl
+      - unzip
+      - apt-transport-https
+      - gnupg
+      - lsb-release
 
-# sudo apt update -y
-# sudo apt install temurin-17-jdk -y
-# /usr/bin/java --version
-# curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-# echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
-# sudo apt-get update -y
-# sudo apt-get install jenkins -y
-# sudo systemctl start jenkins
-# sudo systemctl status jenkins
+- name:  Add Trivy GPG key and repository
+  block:
+    - name: Download Trivy GPG key
+      ansible.builtin.get_url:
+        url: https://aquasecurity.github.io/trivy-repo/deb/public.key
+        dest: /usr/share/keyrings/trivy.gpg
 
-# #install docker
-# sudo apt-get update
-# sudo apt-get install docker.io -y
-# sudo usermod -aG docker ubuntu  
-# newgrp docker
-# sudo chmod 777 /var/run/docker.sock
-# docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
+    - name: Add Trivy repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main"
+        state: present
+        filename: trivy
 
-# # install trivy
-# sudo apt-get install wget apt-transport-https gnupg lsb-release -y
-# wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-# echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-# sudo apt-get update
-# sudo apt-get install trivy -y
+- name: Install trivy
+  ansible.builtin.package:
+    name: trivy
+    state: present
+    update_cache: yes
 
-# #install terraform
-# sudo apt install wget -y
-# wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-# echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-# sudo apt update && sudo apt install terraform
+- name:  Add Terraform GPG key and repository
+  block:
+    - name: Download Trivy GPG key
+      ansible.builtin.get_url:
+        url: https://apt.releases.hashicorp.com/gpg
+        dest: /usr/share/keyrings/hashicorp-archive-keyring.gpg
 
-# #install Kubectl on Jenkins
-# sudo apt update
-# sudo apt install curl -y
-# curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
-# sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-# kubectl version --client
+    - name: Add Terraform repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+        state: present
+        filename: terraform
+
+- name: Install terraform
+  ansible.builtin.package:
+    name: terraform
+    state: present
+    update_cache: yes
+
+
+- name: Install kubectl
+  block:
+    - name: Download kubectl binary
+      shell: curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+      args:
+        chdir: /usr/local/bin
+
+    - name: Set executable permissions for kubectl
+      file:
+        path: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Check kubectl version
+      shell: kubectl version --client
+      register: kubectl_version_output
+
+
+- name: Install AWS CLI
+  block:
+    - name: Download AWS CLI installer
+      shell: curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      args:
+        chdir: /tmp
+
+
+    - name: Unzip AWS CLI installer
+      shell: unzip awscliv2.zip
+      args:
+        chdir: /tmp
+
+    - name: Install AWS CLI
+      shell: sudo /tmp/aws/install
+
+    - name: Check AWS CLI version
+      shell: aws --version
+      register: aws_version_output
+
 
 # #install Aws cli 
 # curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
